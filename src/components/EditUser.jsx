@@ -1,28 +1,55 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
+import { useNavigate, useParams } from "react-router-dom";
+import AxiosService from "../utils/ApiService";
 import { useFormik } from "formik";
 import * as Yup from "yup";
-import AxiosService from "../utils/ApiService";
-import { useNavigate } from "react-router-dom";
 
-const Adduser = () => {
-  const navigate = useNavigate();
-
-  const formik = useFormik({
-    initialValues: {
-      Books: {
-        Title: "",
-        Author: "",
-        ISBN_Number: "",
-        Publication_Date: "",
-      },
-      Author: {
-        Authors_Name: "",
-        Birth_Date: "",
-        Biography: "",
-      },
+const Edituser=()=> {
+  let params = useParams();
+  let [initialValues, setValues] = useState({
+    Books: {
+      Title: "",
+      Author: "",
+      ISBN_Number: "",
+      Publication_Date: "",
     },
+    Author: {
+      Authors_Name: "",
+      Birth_Date: "",
+      Biography: "",
+    },
+  });
+
+  let navigate = useNavigate();
+
+  const getUserData = async () => {
+    let { id } = params;
+    try {
+      let res = await AxiosService.get(`/Formik-validation/${id}`);
+      if (res.status === 200) {
+        setValues({
+          Books: {
+            Title: res.data.Books.Title,
+            Author: res.data.Books.Author,
+            ISBN_Number: res.data.Books.ISBN_Number,
+            Publication_Date: res.data.Books.Publication_Date,
+          },
+          Author: {
+            Authors_Name: res.data.Author.Authors_Name,
+            Birth_Date: res.data.Author.Birth_Date,
+            Biography: res.data.Author.Biography,
+          },
+        });
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  let formik = useFormik({
+    initialValues: initialValues,
     validationSchema: Yup.object({
       Books: Yup.object({
         Title: Yup.string()
@@ -30,45 +57,36 @@ const Adduser = () => {
           .min(4, "Title can not be shorter than 4 letters"),
         Author: Yup.string().required("Author Name is Required"),
         ISBN_Number: Yup.string()
-          .required("ISBN is required")
+          .required("ISBN Number is required")
           .matches(
-            /^(\d{3}-?\d{1,5}-?\d{1,7}-?\d{1,7}-?\d{1}|\d{13})$/,
-            "Invalid ISBN format"
+            /^\d{3}-\d{1,5}-\d{6}-\d{1,3}-\d$/,
+            "Enter a valid ISBN Number"
           ),
-        Publication_Date: Yup.date()
-          .required("Publication Date is required")
-          .nullable()
-          .transform((originalValue, originalObject) => {
-            const parsedDate = new Date(originalValue);
-            return isNaN(parsedDate) ? null : parsedDate;
-          })
-          .test("valid-date", "Invalid date", (value) => value !== null),
+
+        Publication_Date: Yup.string().required("Date is Required"),
       }),
       Author: Yup.object({
-        Authors_Name: Yup.string().required("Authors name is required"),
-        Birth_Date: Yup.date()
-          .required("Date of birth is required")
-          .nullable()
-          .transform((originalValue, originalObject) => {
-            const parsedDate = new Date(originalValue);
-            return isNaN(parsedDate) ? null : parsedDate;
-          })
-          .test("valid-date", "Invalid date", (value) => value !== null),
-
+        Authors_Name: Yup.string().required("Author's name is required"),
+        Birth_Date: Yup.string().required("BirthDate is Required"),
         Biography: Yup.string().required("Biography is required"),
       }),
     }),
+    enableReinitialize: true,
     onSubmit: async (values) => {
+      let { id } = params;
+      values.id = id;
       try {
-        let res = await AxiosService.post("/Formik-validation", values);
-        if (res.status === 201) {
-          navigate("/dashboard");
-        }
+        let res = await AxiosService.put(`/Formik-validation/${id}`, values);
+        if (res.status === 200) navigate("/dashboard");
       } catch (error) {
-        // console.error(error);
+        console.log(error);
       }
     },
   });
+
+  useEffect(() => {
+    getUserData();
+  }, []);
 
   return (
     <div id="content-wrapper" className="d-flex flex-column">
@@ -90,7 +108,6 @@ const Adduser = () => {
               >
                 Books
               </Form.Label>
-
               <Form.Control
                 style={{ textAlign: "center" }}
                 type="text"
@@ -105,6 +122,7 @@ const Adduser = () => {
                 <div style={{ color: "red" }}>{formik.errors.Books.Title}</div>
               ) : null}
               <br />
+
               <Form.Control
                 style={{ textAlign: "center" }}
                 type="text"
@@ -119,6 +137,7 @@ const Adduser = () => {
                 <div style={{ color: "red" }}>{formik.errors.Books.Author}</div>
               ) : null}
               <br />
+
               <Form.Control
                 style={{ textAlign: "center" }}
                 type="text"
@@ -139,33 +158,26 @@ const Adduser = () => {
 
               <Form.Control
                 style={{ textAlign: "center" }}
-                type="date"
-                placeholder="dd//mm//yyyy"
+                type="text"
+                placeholder="Publication_Date"
                 id="Publication_Date"
                 name="Books.Publication_Date"
                 onChange={formik.handleChange}
                 value={formik.values.Books.Publication_Date}
                 onBlur={formik.handleBlur}
               />
-              {formik.touched.publicationDate &&
-              formik.errors.publicationDate ? (
-                <div style={{ color: "red" }}>
-                  {formik.errors.publicationDate}
-                </div>
-              ) : null}
-
               {formik.touched.Books?.Publication_Date &&
               formik.errors.Books?.Publication_Date ? (
                 <div style={{ color: "red" }}>
                   {formik.errors.Books.Publication_Date}
                 </div>
               ) : null}
+              <br />
             </Form.Group>
 
             <Form.Group className="mb-3">
               <Form.Label
                 style={{
-                  textAlign: "center",
                   color: "black",
                   fontFamily: "cursive",
                   fontSize: "22px",
@@ -175,7 +187,7 @@ const Adduser = () => {
                   justifyContent: "center",
                 }}
               >
-                📗Author's Details
+                Author's Details
               </Form.Label>
               <Form.Control
                 style={{ textAlign: "center" }}
@@ -197,8 +209,8 @@ const Adduser = () => {
 
               <Form.Control
                 style={{ textAlign: "center" }}
-                type="date"
-                placeholder="dd//mm//yyyy"
+                type="text"
+                placeholder="Birth_Date"
                 id="Birth_Date"
                 name="Author.Birth_Date"
                 onChange={formik.handleChange}
@@ -229,6 +241,7 @@ const Adduser = () => {
                   {formik.errors.Author.Biography}
                 </div>
               ) : null}
+              <br />
             </Form.Group>
             <div style={{ display: "flex", justifyContent: "center" }}>
               <Button variant="primary" type="submit">
@@ -240,6 +253,6 @@ const Adduser = () => {
       </div>
     </div>
   );
-};
+}
 
-export default Adduser;
+export default Edituser;
